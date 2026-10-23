@@ -8,15 +8,19 @@ const { generateDesign, aiEnabled, STYLES, PALETTES } = require("./lib/generator
 const { prepareSvg, addWatermark, renderPng } = require("./lib/render");
 
 const PORT = Number(process.env.PORT) || 3000;
-const PUBLIC_URL = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
+// Render sets RENDER_EXTERNAL_URL automatically, so PUBLIC_URL is optional there.
+const PUBLIC_URL = (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
 const FREE_SIZE = 800; // longest side in px for the free download
 const HD_SIZE = 4096; // longest side in px for the paid download
 const PRICE_CENTS = 99;
 
 const stripe = process.env.STRIPE_SECRET_KEY ? require("stripe")(process.env.STRIPE_SECRET_KEY) : null;
-const demoPayments = !stripe;
+// Without Stripe, HD unlocks for free. Never allow that in production unless explicitly asked for.
+const demoPayments = !stripe && (process.env.NODE_ENV !== "production" || process.env.ALLOW_DEMO_PAYMENTS === "true");
 
 const app = express();
+// Behind a hosting proxy (Render, Fly, etc.) so req.ip is the visitor, not the proxy.
+app.set("trust proxy", Number(process.env.TRUST_PROXY ?? 1));
 const jsonBody = express.json({ limit: "20kb" });
 // The Stripe webhook needs the raw body for signature verification.
 app.use((req, res, next) => (req.path === "/api/stripe/webhook" ? next() : jsonBody(req, res, next)));
@@ -124,6 +128,7 @@ app.post("/api/designs/:id/checkout", async (req, res) => {
   if (demoPayments) {
     return res.json({ url: `${PUBLIC_URL}/api/designs/${design.id}/demo-pay`, demo: true });
   }
+  if (!stripe) return res.status(503).json({ error: "HD purchases are not available yet. Please check back soon." });
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -228,5 +233,5 @@ app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), (req,
 app.listen(PORT, () => {
   console.log(`DesignForge AI running at ${PUBLIC_URL}`);
   console.log(`  AI engine: ${aiEnabled() ? "Claude" : "demo templates (set ANTHROPIC_API_KEY for AI designs)"}`);
-  console.log(`  Payments:  ${demoPayments ? "demo mode (set STRIPE_SECRET_KEY for real payments)" : "Stripe"}`);
+  console.log(`  Payments:  ${stripe ? "Stripe" : demoPayments ? "demo mode (set STRIPE_SECRET_KEY for real payments)" : "disabled (set STRIPE_SECRET_KEY)"}`);
 });

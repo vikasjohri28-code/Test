@@ -26,9 +26,20 @@ It works with **no keys at all**, for trying it out:
 | Not set | What happens |
 |---|---|
 | `ANTHROPIC_API_KEY` | Designs come from built-in demo templates instead of AI |
-| `STRIPE_SECRET_KEY` | "Get HD" unlocks right away with no charge (demo payment) |
+| `STRIPE_SECRET_KEY` | "Get HD" unlocks right away with no charge (demo payment). In production (`NODE_ENV=production`) HD purchases are turned off instead, unless `ALLOW_DEMO_PAYMENTS=true` |
 
 To go live, set both. Set `PUBLIC_URL` to your real domain so Stripe redirects back correctly.
+
+## Deploy on Render
+
+The repo includes a `render.yaml` Blueprint.
+
+1. In the [Render dashboard](https://dashboard.render.com), choose **New > Blueprint** and connect this GitHub repository.
+2. Render reads `render.yaml` and asks for the secret values: `ANTHROPIC_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (leave empty for now) and `PUBLIC_URL` (leave empty to use the `onrender.com` address).
+3. Click **Apply**. The first deploy takes a few minutes; the site address appears on the service page.
+4. In Stripe, add the webhook endpoint `https://YOUR-SITE.onrender.com/api/stripe/webhook`, then paste its signing secret into `STRIPE_WEBHOOK_SECRET` in Render's **Environment** tab.
+
+The Blueprint uses Render's **Starter** instance because saved designs live on a persistent disk, which free instances don't have. Every push to the branch redeploys automatically.
 
 ### Stripe webhook (recommended in production)
 
@@ -39,13 +50,15 @@ In the Stripe dashboard, add an endpoint `https://YOUR_DOMAIN/api/stripe/webhook
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | `3000` | HTTP port |
-| `PUBLIC_URL` | `http://localhost:PORT` | Base URL for Stripe success/cancel redirects |
+| `PUBLIC_URL` | Render's address, else `http://localhost:PORT` | Base URL for Stripe success/cancel redirects |
 | `ANTHROPIC_API_KEY` | none | Turns on AI designs |
 | `ANTHROPIC_MODEL` | `claude-opus-5-5` | Model used for designs |
 | `STRIPE_SECRET_KEY` | none | Turns on real payments |
 | `STRIPE_WEBHOOK_SECRET` | none | Verifies Stripe webhooks |
 | `GENERATIONS_PER_HOUR` | `20` | Per-IP limit on generations |
 | `DATA_DIR` | `./data` | Where designs are stored (one JSON file each) |
+| `ALLOW_DEMO_PAYMENTS` | unset | `true` allows free HD unlocks in production when Stripe isn't set up |
+| `TRUST_PROXY` | `1` | Number of proxies in front of the app, so rate limiting sees the visitor's real IP |
 
 Price, free size and HD size are constants at the top of `server.js`.
 

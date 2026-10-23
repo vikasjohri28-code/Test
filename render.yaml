@@ -1,0 +1,37 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# In the Render dashboard choose New > Blueprint and pick this repository.
+services:
+  - type: web
+    name: designforge-ai
+    runtime: node
+    # A persistent disk (where designs are saved) needs a paid instance; starter is the smallest.
+    plan: starter
+    branch: claude/ai-graphic-design-generator-ay1m2u
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/config
+    autoDeploy: true
+    disk:
+      name: designs
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data
+      - key: GENERATIONS_PER_HOUR
+        value: "20"
+      # Render asks for these when you create the Blueprint. Keep them secret.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      # Optional: set to your custom domain (e.g. https://designforge.com) once you add one.
+      # Without it the site uses the onrender.com address Render assigns.
+      - key: PUBLIC_URL
+        sync: false
